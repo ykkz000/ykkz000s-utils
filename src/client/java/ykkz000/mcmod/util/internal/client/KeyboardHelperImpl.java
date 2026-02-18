@@ -1,8 +1,6 @@
 package ykkz000.mcmod.util.internal.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
