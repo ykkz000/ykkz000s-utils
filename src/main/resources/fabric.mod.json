@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "ykkz000s-utils",
+  "version": "${version}",
+  "name": "ykkz000's Utils",
+  "description": "This is a library for my mods.",
+  "authors": [
+    "ykkz000"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/ykkz000s-utils/icon.png",
+  "environment": "*",
+  "entrypoints": {
+  },
+  "mixins": [
+    "ykkz000s-utils.mixins.json",
+    {
+      "config": "ykkz000s-utils.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "~26.1-",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

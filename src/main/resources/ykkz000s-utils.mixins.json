@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "ykkz000.mcmod.util.internal.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
