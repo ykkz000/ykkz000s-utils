@@ -10,6 +10,7 @@ import java.lang.reflect.Method;
 public class ModTest implements CustomTestMethodInvoker {
     @Override
     public void invokeTestMethod(@NonNull GameTestHelper context, @NonNull Method method) throws ReflectiveOperationException {
+        method.invoke(this, context);
     }
 
     @GameTest
