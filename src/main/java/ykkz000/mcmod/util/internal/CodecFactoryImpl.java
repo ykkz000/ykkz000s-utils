@@ -2,15 +2,14 @@ package ykkz000.mcmod.util.internal;
 
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.*;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
 import ykkz000.mcmod.util.api.CodecFactory;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -26,19 +25,21 @@ public class CodecFactoryImpl implements CodecFactory {
     }
 
     @Override
-    public <T> Codec<T> codec(final Class<T> type, String name) {
+    public <T> Codec<T> codec(final Class<T> type) {
         return new Codec<>() {
             @Override
             public <T1> DataResult<Pair<T, T1>> decode(DynamicOps<T1> ops, T1 input) {
-                input = ops.get(input, name).result().orElseThrow();
                 Field[] fields = type.getDeclaredFields();
                 Object[] values = new Object[fields.length];
                 for (int i = 0; i < fields.length; i++) {
                     Field field = fields[i];
-                    values[i] = readValue(field.getType(), ops, ops.get(input, field.getName()).result().orElseThrow());
+                    int finalI = i;
+                    ops.get(input, field.getName()).result().flatMap(rawValue -> readValue(field.getType(), ops, rawValue).result()).ifPresent(value -> values[finalI] = value);
                 }
                 try {
-                    return DataResult.success(Pair.of(type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new)).newInstance(values), ops.empty()));
+                    Constructor<T> constructor = type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new));
+                    constructor.setAccessible(true);
+                    return DataResult.success(Pair.of(constructor.newInstance(values), ops.empty()));
                 } catch (InvocationTargetException | InstantiationException | IllegalAccessException |
                          NoSuchMethodException e) {
                     throw new RuntimeException(e);
@@ -48,16 +49,16 @@ public class CodecFactoryImpl implements CodecFactory {
             @Override
             public <T1> DataResult<T1> encode(T input, DynamicOps<T1> ops, T1 prefix) {
                 Field[] fields = type.getDeclaredFields();
-                T1 output = ops.empty();
+                RecordBuilder<T1> outputBuilder = ops.mapBuilder();
                 for (Field field : fields) {
                     try {
                         field.setAccessible(true);
-                        ops.mergeToMap(output, ops.createString(field.getName()), writeValue(field.getType(), ops, field.get(input)));
+                        outputBuilder.add(field.getName(), writeValue(field.getType(), ops, field.get(input)));
                     } catch (IllegalAccessException e) {
                         throw new RuntimeException(e);
                     }
                 }
-                return ops.mergeToMap(prefix, ops.createString(name), output);
+                return outputBuilder.build(prefix);
             }
         };
     }
@@ -74,7 +75,9 @@ public class CodecFactoryImpl implements CodecFactory {
                     values[i] = readValueStream(field.getType(), input);
                 }
                 try {
-                    return type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new)).newInstance(values);
+                    Constructor<T> constructor = type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new));
+                    constructor.setAccessible(true);
+                    return constructor.newInstance(values);
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                          NoSuchMethodException e) {
                     throw new RuntimeException(e);
@@ -96,83 +99,84 @@ public class CodecFactoryImpl implements CodecFactory {
         };
     }
 
-    private <T> Object readValue(Class<?> type, DynamicOps<T> ops, T input) {
+    private <T> DataResult<Object> readValue(Class<?> type, DynamicOps<T> ops, T input) {
         if (type == int.class || type == Integer.class) {
-            return ops.getNumberValue(input).map(Number::intValue).result().orElseThrow();
+            return ops.getNumberValue(input).map(Number::intValue);
         }
         if (type == byte.class || type == Byte.class) {
-            return ops.getNumberValue(input).map(Number::byteValue).result().orElseThrow();
+            return ops.getNumberValue(input).map(Number::byteValue);
         }
         if (type == boolean.class || type == Boolean.class) {
-            return ops.getBooleanValue(input).result().orElseThrow();
+            return ops.getBooleanValue(input).map(Boolean::booleanValue);
         }
         if (type == short.class || type == Short.class) {
-            return ops.getNumberValue(input).map(Number::shortValue).result().orElseThrow();
+            return ops.getNumberValue(input).map(Number::shortValue);
         }
         if (type == long.class || type == Long.class) {
-            return ops.getNumberValue(input).map(Number::longValue).result().orElseThrow();
+            return ops.getNumberValue(input).map(Number::longValue);
         }
         if (type == float.class || type == Float.class) {
-            return ops.getNumberValue(input).map(Number::floatValue).result().orElseThrow();
+            return ops.getNumberValue(input).map(Number::floatValue);
         }
         if (type == double.class || type == Double.class) {
-            return ops.getNumberValue(input).map(Number::doubleValue).result().orElseThrow();
+            return ops.getNumberValue(input).map(Number::doubleValue);
         }
         if (type.isEnum()) {
-            return ops.getNumberValue(input).map(Number::intValue).map(i -> type.getEnumConstants()[i]).result().orElseThrow();
+            return ops.getNumberValue(input).map(Number::intValue).map(i -> type.getEnumConstants()[i]);
         }
         if (ItemStack.class.isAssignableFrom(type)) {
-            return ItemStack.OPTIONAL_CODEC.decode(ops, input).map(Pair::getFirst).result().orElseThrow();
+            return ItemStack.OPTIONAL_CODEC.decode(ops, input).map(Pair::getFirst);
         }
         if (type.isArray()) {
-            List<Object> list = new ArrayList<>();
-            ops.getList(input).map(entryConsumerConsumer -> {
-                entryConsumerConsumer.accept(entry -> list.add(readValue(type.getComponentType(), ops, entry)));
-                return 1;
+            return ops.getList(input).map(stream -> {
+                List<Object> list = new ArrayList<>();
+                stream.accept(entry -> readValue(type.getComponentType(), ops, entry).result().ifPresent(list::add));
+                return list;
+            }).map(list -> {
+                Object array = Array.newInstance(type.getComponentType(), list.size());
+                for (int i = 0; i < list.size(); i++) {
+                    Array.set(array, i, list.get(i));
+                }
+                return array;
             });
-            Object array = Array.newInstance(type.getComponentType(), list.size());
-            for (int i = 0; i < list.size(); i++) {
-                Array.set(array, i, list.get(i));
-            }
-            return array;
         }
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
-    private <T> T writeValue(Class<?> type, DynamicOps<T> ops, Object obj) {
+    private <T> DataResult<T> writeValue(Class<?> type, DynamicOps<T> ops, Object obj) {
         if (type == int.class || type == Integer.class) {
-            return ops.createInt((Integer) obj);
+            return DataResult.success(ops.createInt((Integer) obj));
         }
         if (type == byte.class || type == Byte.class) {
-            return ops.createByte((Byte) obj);
+            return DataResult.success(ops.createByte((Byte) obj));
         }
         if (type == boolean.class || type == Boolean.class) {
-            return ops.createBoolean((Boolean) obj);
+            return DataResult.success(ops.createBoolean((Boolean) obj));
         }
         if (type == short.class || type == Short.class) {
-            return ops.createShort((Short) obj);
+            return DataResult.success(ops.createShort((Short) obj));
         }
         if (type == long.class || type == Long.class) {
-            return ops.createLong((Long) obj);
+            return DataResult.success(ops.createLong((Long) obj));
         }
         if (type == float.class || type == Float.class) {
-            return ops.createFloat((Float) obj);
+            return DataResult.success(ops.createFloat((Float) obj));
         }
         if (type == double.class || type == Double.class) {
-            return ops.createDouble((Double) obj);
+            return DataResult.success(ops.createDouble((Double) obj));
         }
         if (type.isEnum()) {
-            return ops.createInt(((Enum<?>) obj).ordinal());
+            return DataResult.success(ops.createInt(((Enum<?>) obj).ordinal()));
         }
         if (ItemStack.class.isAssignableFrom(type)) {
-            return ItemStack.OPTIONAL_CODEC.encodeStart(ops, (ItemStack) obj).result().orElseThrow();
+            return ItemStack.OPTIONAL_CODEC.encodeStart(ops, (ItemStack) obj);
         }
         if (type.isArray()) {
-            List<T> list = new ArrayList<>();
+            ListBuilder<T> listBuilder = ops.listBuilder();
             for (int i = 0; i < Array.getLength(obj); i++) {
-                list.add(writeValue(type.getComponentType(), ops, Array.get(obj, i)));
+                listBuilder.add(writeValue(type.getComponentType(), ops, Array.get(obj, i)));
             }
-            return ops.createList(list.stream());
+            return listBuilder.build(ops.empty());
         }
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
@@ -212,6 +216,7 @@ public class CodecFactoryImpl implements CodecFactory {
             for (int i = 0; i < size; i++) {
                 Array.set(array, i, readValueStream(type.getComponentType(), input));
             }
+            return array;
         }
         throw new IllegalArgumentException("Unsupported type: " + type);
     }

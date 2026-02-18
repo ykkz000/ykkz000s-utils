@@ -14,13 +14,12 @@ public interface CodecFactory {
     /**
      * Create a codec for a record.
      *
-     * @param type The record type.
-     * @param name The name of the record as a key.
      * @param <T>  The record type.
+     * @param type The record type.
      * @return The codec.
      * @apiNote The fields of the record must be int, byte, boolean, short, long, float, double, {@link Integer}, {@link Byte}, {@link Boolean}, {@link Short}, {@link Long}, {@link Float}, {@link Double}, enum, {@link ItemStack}, or array of those.
      */
-    <T> Codec<T> codec(final Class<T> type, String name);
+    <T> Codec<T> codec(final Class<T> type);
 
     /**
      * Create a stream codec for a record.
