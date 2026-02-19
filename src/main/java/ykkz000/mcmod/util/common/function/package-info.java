@@ -3,7 +3,4 @@
  *
  * @author ykkz000
  */
-@NullMarked
 package ykkz000.mcmod.util.common.function;
-
-import org.jspecify.annotations.NullMarked;
