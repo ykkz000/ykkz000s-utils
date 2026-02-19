@@ -25,7 +25,7 @@ public final class ThrowingUtils {
      * @param <R>      the type of the result of the function
      * @return a {@link Function} that applies the given function, rethrowing any checked exception as unchecked
      */
-    public static <T, R> Function<T, R> uncheckFunction(@NonNull ThrowingFunction<T, R> function) {
+    public static <T, R> @NonNull Function<T, R> uncheckFunction(@NonNull ThrowingFunction<T, R> function) {
         return t -> {
             try {
                 return function.apply(t);
@@ -44,7 +44,7 @@ public final class ThrowingUtils {
      * @param <R>      the type of the result
      * @return a {@link BiFunction} that applies the given function, rethrowing any checked exception as unchecked
      */
-    public static <T, U, R> BiFunction<T, U, R> uncheckBiFunction(@NonNull ThrowingBiFunction<T, U, R> function) {
+    public static <T, U, R> @NonNull BiFunction<T, U, R> uncheckBiFunction(@NonNull ThrowingBiFunction<T, U, R> function) {
         return (t, u) -> {
             try {
                 return function.apply(t, u);
@@ -61,7 +61,7 @@ public final class ThrowingUtils {
      * @param <T>      the type of the input to the operation
      * @return a {@link Consumer} that applies the given consumer, rethrowing any checked exception as unchecked
      */
-    public static <T> Consumer<T> uncheckConsumer(@NonNull ThrowingConsumer<T> consumer) {
+    public static <T> @NonNull Consumer<T> uncheckConsumer(@NonNull ThrowingConsumer<T> consumer) {
         return t -> {
             try {
                 consumer.accept(t);
@@ -78,7 +78,7 @@ public final class ThrowingUtils {
      * @param <T>      the type of results supplied by this supplier
      * @return a {@link Supplier} that applies the given supplier, rethrowing any checked exception as unchecked
      */
-    public static <T> Supplier<T> uncheckSupplier(@NonNull ThrowingSupplier<T> supplier) {
+    public static <T> @NonNull Supplier<T> uncheckSupplier(@NonNull ThrowingSupplier<T> supplier) {
         return () -> {
             try {
                 return supplier.get();
@@ -94,7 +94,7 @@ public final class ThrowingUtils {
      * @param runnable the throwing runnable to be wrapped
      * @return a {@link Runnable} that applies the given runnable, rethrowing any checked exception as unchecked
      */
-    public static Runnable uncheckRunnable(@NonNull ThrowingRunnable runnable) {
+    public static @NonNull Runnable uncheckRunnable(@NonNull ThrowingRunnable runnable) {
         return () -> {
             try {
                 runnable.run();
