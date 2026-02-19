@@ -17,7 +17,7 @@ public interface CodecFactory {
      * @param <T>  The record type.
      * @param type The record type.
      * @return The codec.
-     * @apiNote The fields of the record must be int, byte, boolean, short, long, float, double, {@link Integer}, {@link Byte}, {@link Boolean}, {@link Short}, {@link Long}, {@link Float}, {@link Double}, enum, {@link ItemStack}, or array of those.
+     * @apiNote The fields of the record must be int, byte, boolean, short, long, float, double, {@link Integer}, {@link Byte}, {@link Boolean}, {@link Short}, {@link Long}, {@link Float}, {@link Double}, enum, {@link ItemStack}, another record, or array of those.
      */
     <T> Codec<T> codec(final Class<T> type);
 
@@ -27,7 +27,7 @@ public interface CodecFactory {
      * @param type The record type.
      * @param <T>  The record type.
      * @return The stream codec.
-     * @apiNote The fields of the record must be int, byte, boolean, short, long, float, double, {@link Integer}, {@link Byte}, {@link Boolean}, {@link Short}, {@link Long}, {@link Float}, {@link Double}, enum, {@link ItemStack}, or array of those.
+     * @apiNote The fields of the record must be int, byte, boolean, short, long, float, double, {@link Integer}, {@link Byte}, {@link Boolean}, {@link Short}, {@link Long}, {@link Float}, {@link Double}, enum, {@link ItemStack}, another record, or array of those.
      */
     <T extends Record> StreamCodec<RegistryFriendlyByteBuf, T> streamCodec(final Class<T> type);
 }

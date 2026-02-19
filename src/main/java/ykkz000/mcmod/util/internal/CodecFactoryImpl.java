@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static ykkz000.mcmod.util.common.ThrowingUtils.*;
+
 public class CodecFactoryImpl implements CodecFactory {
     public static CodecFactoryImpl create() {
         return new CodecFactoryImpl();
@@ -29,36 +31,31 @@ public class CodecFactoryImpl implements CodecFactory {
         return new Codec<>() {
             @Override
             public <T1> DataResult<Pair<T, T1>> decode(DynamicOps<T1> ops, T1 input) {
-                Field[] fields = type.getDeclaredFields();
-                Object[] values = new Object[fields.length];
-                for (int i = 0; i < fields.length; i++) {
-                    Field field = fields[i];
-                    int finalI = i;
-                    ops.get(input, field.getName()).result().flatMap(rawValue -> readValue(field.getType(), ops, rawValue).result()).ifPresent(value -> values[finalI] = value);
-                }
-                try {
+                return sneakyThrow(() -> {
+                    Field[] fields = type.getDeclaredFields();
+                    Object[] values = new Object[fields.length];
+                    for (int i = 0; i < fields.length; i++) {
+                        Field field = fields[i];
+                        int finalI = i;
+                        ops.get(input, field.getName()).result().flatMap(uncheckFunction(rawValue -> readValue(field.getType(), ops, rawValue).result())).ifPresent(value -> values[finalI] = value);
+                    }
                     Constructor<T> constructor = type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new));
                     constructor.setAccessible(true);
                     return DataResult.success(Pair.of(constructor.newInstance(values), ops.empty()));
-                } catch (InvocationTargetException | InstantiationException | IllegalAccessException |
-                         NoSuchMethodException e) {
-                    throw new RuntimeException(e);
-                }
+                });
             }
 
             @Override
             public <T1> DataResult<T1> encode(T input, DynamicOps<T1> ops, T1 prefix) {
-                Field[] fields = type.getDeclaredFields();
-                RecordBuilder<T1> outputBuilder = ops.mapBuilder();
-                for (Field field : fields) {
-                    try {
+                return sneakyThrow(() -> {
+                    Field[] fields = type.getDeclaredFields();
+                    RecordBuilder<T1> outputBuilder = ops.mapBuilder();
+                    for (Field field : fields) {
                         field.setAccessible(true);
                         outputBuilder.add(field.getName(), writeValue(field.getType(), ops, field.get(input)));
-                    } catch (IllegalAccessException e) {
-                        throw new RuntimeException(e);
                     }
-                }
-                return outputBuilder.build(prefix);
+                    return outputBuilder.build(prefix);
+                });
             }
         };
     }
@@ -68,38 +65,33 @@ public class CodecFactoryImpl implements CodecFactory {
         return new StreamCodec<>() {
             @Override
             public T decode(RegistryFriendlyByteBuf input) {
-                Field[] fields = type.getDeclaredFields();
-                Object[] values = new Object[fields.length];
-                for (int i = 0; i < fields.length; i++) {
-                    Field field = fields[i];
-                    values[i] = readValueStream(field.getType(), input);
-                }
-                try {
+                return sneakyThrow(() -> {
+                    Field[] fields = type.getDeclaredFields();
+                    Object[] values = new Object[fields.length];
+                    for (int i = 0; i < fields.length; i++) {
+                        Field field = fields[i];
+                        values[i] = readValueStream(field.getType(), input);
+                    }
                     Constructor<T> constructor = type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new));
                     constructor.setAccessible(true);
                     return constructor.newInstance(values);
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new RuntimeException(e);
-                }
+                });
             }
 
             @Override
             public void encode(RegistryFriendlyByteBuf output, T value) {
-                Field[] fields = type.getDeclaredFields();
-                for (Field field : fields) {
-                    try {
+                sneakyThrow(() -> {
+                    Field[] fields = type.getDeclaredFields();
+                    for (Field field : fields) {
                         field.setAccessible(true);
                         writeValueStream(field.getType(), output, field.get(value));
-                    } catch (IllegalAccessException e) {
-                        throw new RuntimeException(e);
                     }
-                }
+                });
             }
         };
     }
 
-    private <T> DataResult<Object> readValue(Class<?> type, DynamicOps<T> ops, T input) {
+    private <T> DataResult<Object> readValue(Class<?> type, DynamicOps<T> ops, T input) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         if (type == int.class || type == Integer.class) {
             return ops.getNumberValue(input).map(Number::intValue);
         }
@@ -127,10 +119,22 @@ public class CodecFactoryImpl implements CodecFactory {
         if (ItemStack.class.isAssignableFrom(type)) {
             return ItemStack.OPTIONAL_CODEC.decode(ops, input).map(Pair::getFirst);
         }
+        if (type.isRecord()) {
+            Field[] fields = type.getDeclaredFields();
+            Object[] values = new Object[fields.length];
+            for (int i = 0; i < fields.length; i++) {
+                Field field = fields[i];
+                int finalI = i;
+                ops.get(input, field.getName()).result().flatMap(uncheckFunction(rawValue -> readValue(field.getType(), ops, rawValue).result())).ifPresent(value -> values[finalI] = value);
+            }
+            Constructor<?> constructor = type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new));
+            constructor.setAccessible(true);
+            return DataResult.success(constructor.newInstance(values));
+        }
         if (type.isArray()) {
             return ops.getList(input).map(stream -> {
                 List<Object> list = new ArrayList<>();
-                stream.accept(entry -> readValue(type.getComponentType(), ops, entry).result().ifPresent(list::add));
+                stream.accept(uncheckConsumer(entry -> readValue(type.getComponentType(), ops, entry).result().ifPresent(list::add)));
                 return list;
             }).map(list -> {
                 Object array = Array.newInstance(type.getComponentType(), list.size());
@@ -171,6 +175,19 @@ public class CodecFactoryImpl implements CodecFactory {
         if (ItemStack.class.isAssignableFrom(type)) {
             return ItemStack.OPTIONAL_CODEC.encodeStart(ops, (ItemStack) obj);
         }
+        if (type.isRecord()) {
+            Field[] fields = type.getDeclaredFields();
+            RecordBuilder<T> outputBuilder = ops.mapBuilder();
+            for (Field field : fields) {
+                try {
+                    field.setAccessible(true);
+                    outputBuilder.add(field.getName(), writeValue(field.getType(), ops, field.get(obj)));
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return outputBuilder.build(ops.empty());
+        }
         if (type.isArray()) {
             ListBuilder<T> listBuilder = ops.listBuilder();
             for (int i = 0; i < Array.getLength(obj); i++) {
@@ -182,7 +199,7 @@ public class CodecFactoryImpl implements CodecFactory {
     }
 
 
-    private Object readValueStream(Class<?> type, RegistryFriendlyByteBuf input) {
+    private Object readValueStream(Class<?> type, RegistryFriendlyByteBuf input) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         if (type == int.class || type == Integer.class) {
             return input.readInt();
         }
@@ -209,6 +226,17 @@ public class CodecFactoryImpl implements CodecFactory {
         }
         if (ItemStack.class.isAssignableFrom(type)) {
             return ItemStack.OPTIONAL_STREAM_CODEC.decode(input);
+        }
+        if (type.isRecord()) {
+            Field[] fields = type.getDeclaredFields();
+            Object[] values = new Object[fields.length];
+            for (int i = 0; i < fields.length; i++) {
+                Field field = fields[i];
+                values[i] = readValueStream(field.getType(), input);
+            }
+            Constructor<?> constructor = type.getDeclaredConstructor(Arrays.stream(fields).map(Field::getType).toArray(Class[]::new));
+            constructor.setAccessible(true);
+            return constructor.newInstance(values);
         }
         if (type.isArray()) {
             int size = input.readInt();
@@ -244,6 +272,12 @@ public class CodecFactoryImpl implements CodecFactory {
             output.writeInt(Array.getLength(value));
             for (int i = 0; i < Array.getLength(value); i++) {
                 writeValueStream(type.getComponentType(), output, Array.get(value, i));
+            }
+        } else if (type.isRecord()) {
+            Field[] fields = type.getDeclaredFields();
+            for (Field field : fields) {
+                field.setAccessible(true);
+                writeValueStream(field.getType(), output, field.get(value));
             }
         } else {
             throw new IllegalArgumentException("Unsupported type: " + type);

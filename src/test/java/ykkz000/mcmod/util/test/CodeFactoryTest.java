@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.datafixers.util.Pair;
-import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
@@ -25,8 +24,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 public class CodeFactoryTest {
+    record InnerRecord(int a) {}
     record TestRecord(int a, byte b, boolean c, short d, long e, float f, double g, Integer h, Byte i, Boolean j,
-                      Short k, Long l, Float m, Double n, int[] o, byte[] p) {
+                      Short k, Long l, Float m, Double n, int[] o, byte[] p, InnerRecord[] q) {
     }
 
     private static Codec<TestRecord> codec = null;
@@ -41,8 +41,7 @@ public class CodeFactoryTest {
     @Test
     protected void testCodecEncode() {
         JsonObject jsonObject = new JsonObject();
-        DataResult<JsonElement> result = codec.encode(new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6}), JsonOps.INSTANCE, jsonObject);
-        LogUtils.getLogger().info(jsonObject.toString());
+        DataResult<JsonElement> result = codec.encode(new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6}, new InnerRecord[]{new InnerRecord(1), new InnerRecord(2), new InnerRecord(3)}), JsonOps.INSTANCE, jsonObject);
         Assertions.assertTrue(result.isSuccess());
         AtomicReference<JsonObject> newJsonObject = new AtomicReference<>();
         Assertions.assertDoesNotThrow(() -> newJsonObject.set(result.getOrThrow().getAsJsonObject()));
@@ -68,6 +67,10 @@ public class CodeFactoryTest {
         Assertions.assertEquals(4, newJsonObject.get().getAsJsonArray("p").get(0).getAsInt());
         Assertions.assertEquals(5, newJsonObject.get().getAsJsonArray("p").get(1).getAsInt());
         Assertions.assertEquals(6, newJsonObject.get().getAsJsonArray("p").get(2).getAsInt());
+        Assertions.assertEquals(3, newJsonObject.get().getAsJsonArray("q").size());
+        Assertions.assertEquals(1, newJsonObject.get().getAsJsonArray("q").get(0).getAsJsonObject().get("a").getAsInt());
+        Assertions.assertEquals(2, newJsonObject.get().getAsJsonArray("q").get(1).getAsJsonObject().get("a").getAsInt());
+        Assertions.assertEquals(3, newJsonObject.get().getAsJsonArray("q").get(2).getAsJsonObject().get("a").getAsInt());
     }
 
     @Test
@@ -97,6 +100,17 @@ public class CodeFactoryTest {
         p.add(5);
         p.add(6);
         jsonObject.add("p", p);
+        JsonArray q = new JsonArray();
+        JsonObject q1 = new JsonObject();
+        q1.addProperty("a", 1);
+        q.add(q1);
+        JsonObject q2 = new JsonObject();
+        q2.addProperty("a", 2);
+        q.add(q2);
+        JsonObject q3 = new JsonObject();
+        q3.addProperty("a", 3);
+        q.add(q3);
+        jsonObject.add("q", q);
         DataResult<Pair<TestRecord, JsonElement>> recordResult = codec.decode(JsonOps.INSTANCE, jsonObject);
         Assertions.assertTrue(recordResult.isSuccess());
         Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::a, _->0).intValue());
@@ -121,11 +135,15 @@ public class CodeFactoryTest {
         Assertions.assertEquals(4, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _->new byte[0])[0]);
         Assertions.assertEquals(5, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _->new byte[0])[1]);
         Assertions.assertEquals(6, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _->new byte[0])[2]);
+        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q,  _->new InnerRecord[0]).length);
+        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _->new InnerRecord[0])[0].a());
+        Assertions.assertEquals(2, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _->new InnerRecord[0])[1].a());
+        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _->new InnerRecord[0])[2].a());
     }
 
     @Test
     protected void testStreamCodec() {
-        TestRecord source = new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6});
+        TestRecord source = new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6}, new InnerRecord[]{new InnerRecord(1), new InnerRecord(2), new InnerRecord(3)});
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(PooledByteBufAllocator.DEFAULT.buffer(), new RegistryAccess.Frozen() {
             @Override
             public <E> @NonNull Optional<Registry<E>> lookup(@NonNull ResourceKey<? extends Registry<? extends E>> registryKey) {
@@ -161,5 +179,9 @@ public class CodeFactoryTest {
         Assertions.assertEquals(4, result.p()[0]);
         Assertions.assertEquals(5, result.p()[1]);
         Assertions.assertEquals(6, result.p()[2]);
+        Assertions.assertEquals(3, result.q().length);
+        Assertions.assertEquals(1, result.q()[0].a());
+        Assertions.assertEquals(2, result.q()[1].a());
+        Assertions.assertEquals(3, result.q()[2].a());
     }
 }
