@@ -112,11 +112,11 @@ public final class ThrowingUtils {
      * @return the result produced by the supplier
      * @throws Exception any checked exception thrown by the supplier (not declared in the method signature)
      */
-    public static <T> T sneakyThrow(@NonNull ThrowingSupplier<T> supplier) {
+    public static <T> T sneakThrows(@NonNull ThrowingSupplier<T> supplier) {
         try {
             return supplier.get();
-        } catch (Throwable t) {
-            return sneakyThrow0(t);
+        } catch (Exception e) {
+            throw sneakyThrow(e);
         }
     }
 
@@ -126,16 +126,30 @@ public final class ThrowingUtils {
      * @param runnable the runnable to be executed
      * @throws Exception any checked exception thrown by the runnable (not declared in the method signature)
      */
-    public static void sneakyThrow(@NonNull ThrowingRunnable runnable) {
+    public static void sneakThrows(@NonNull ThrowingRunnable runnable) {
         try {
             runnable.run();
-        } catch (Throwable t) {
-            sneakyThrow0(t);
+        } catch (Exception e) {
+            throw sneakyThrow(e);
+        }
+    }
+
+    /**
+     * Rethrowing any exception as RuntimeException (though the exception is not RuntimeException).
+     *
+     * @param t the exception to be rethrowing
+     * @return the exception as RuntimeException
+     */
+    public static RuntimeException sneakyThrow(Throwable t) {
+        if (t == null) {
+            throw new NullPointerException("t");
+        } else {
+            return sneakyThrow0(t);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private static <E extends Throwable, R> R sneakyThrow0(Throwable t) throws E {
+    private static <E extends Throwable> E sneakyThrow0(Throwable t) throws E {
         throw (E) t;
     }
 

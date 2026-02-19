@@ -31,7 +31,7 @@ public class CodecFactoryImpl implements CodecFactory {
         return new Codec<>() {
             @Override
             public <T1> DataResult<Pair<T, T1>> decode(DynamicOps<T1> ops, T1 input) {
-                return sneakyThrow(() -> {
+                return sneakThrows(() -> {
                     Field[] fields = type.getDeclaredFields();
                     Object[] values = new Object[fields.length];
                     for (int i = 0; i < fields.length; i++) {
@@ -47,7 +47,7 @@ public class CodecFactoryImpl implements CodecFactory {
 
             @Override
             public <T1> DataResult<T1> encode(T input, DynamicOps<T1> ops, T1 prefix) {
-                return sneakyThrow(() -> {
+                return sneakThrows(() -> {
                     Field[] fields = type.getDeclaredFields();
                     RecordBuilder<T1> outputBuilder = ops.mapBuilder();
                     for (Field field : fields) {
@@ -65,7 +65,7 @@ public class CodecFactoryImpl implements CodecFactory {
         return new StreamCodec<>() {
             @Override
             public T decode(RegistryFriendlyByteBuf input) {
-                return sneakyThrow(() -> {
+                return sneakThrows(() -> {
                     Field[] fields = type.getDeclaredFields();
                     Object[] values = new Object[fields.length];
                     for (int i = 0; i < fields.length; i++) {
@@ -80,7 +80,7 @@ public class CodecFactoryImpl implements CodecFactory {
 
             @Override
             public void encode(RegistryFriendlyByteBuf output, T value) {
-                sneakyThrow(() -> {
+                sneakThrows(() -> {
                     Field[] fields = type.getDeclaredFields();
                     for (Field field : fields) {
                         field.setAccessible(true);
