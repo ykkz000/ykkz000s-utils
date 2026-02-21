@@ -1,4 +1,4 @@
-package ykkz000.mcmod.util.api.client;
+package ykkz000.mcmod.util.api.client.input;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;

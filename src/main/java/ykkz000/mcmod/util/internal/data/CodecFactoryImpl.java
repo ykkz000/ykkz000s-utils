@@ -1,4 +1,4 @@
-package ykkz000.mcmod.util.internal;
+package ykkz000.mcmod.util.internal.data;
 
 
 import com.mojang.datafixers.util.Pair;
@@ -6,7 +6,9 @@ import com.mojang.serialization.*;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
-import ykkz000.mcmod.util.api.CodecFactory;
+import org.jspecify.annotations.Nullable;
+import ykkz000.mcmod.util.api.codec.CodecFactory;
+import ykkz000.mcmod.util.api.codec.Data;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -19,15 +21,27 @@ import java.util.List;
 import static ykkz000.mcmod.util.common.ThrowingUtils.*;
 
 public class CodecFactoryImpl implements CodecFactory {
+    @Nullable
+    private static CodecFactoryImpl INSTANCE = null;
+
     public static CodecFactoryImpl create() {
-        return new CodecFactoryImpl();
+        if (INSTANCE == null) {
+            INSTANCE = new CodecFactoryImpl();
+        }
+        return INSTANCE;
     }
 
     protected CodecFactoryImpl() {
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public <T> Codec<T> codec(final Class<T> type) {
+    public <M extends Data<M, I>, I extends Record & Data.Immutable<I, M>> Codec<M> codec(Class<M> type) {
+        return sneakThrows(() -> new DataCodec<>(recordCodec((Class<I>) type.getDeclaredMethod("toImmutable").getReturnType())));
+    }
+
+    @Override
+    public <T extends Record> Codec<T> recordCodec(final Class<T> type) {
         return new Codec<>() {
             @Override
             public <T1> DataResult<Pair<T, T1>> decode(DynamicOps<T1> ops, T1 input) {
@@ -60,8 +74,14 @@ public class CodecFactoryImpl implements CodecFactory {
         };
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public <T extends Record> StreamCodec<RegistryFriendlyByteBuf, T> streamCodec(final Class<T> type) {
+    public <M extends Data<M, I>, I extends Record & Data.Immutable<I, M>> StreamCodec<RegistryFriendlyByteBuf, M> streamCodec(Class<M> type) {
+        return sneakThrows(() -> new DataStreamCodec<>(recordStreamCodec((Class<I>) type.getDeclaredMethod("toImmutable").getReturnType())));
+    }
+
+    @Override
+    public <T extends Record> StreamCodec<RegistryFriendlyByteBuf, T> recordStreamCodec(final Class<T> type) {
         return new StreamCodec<>() {
             @Override
             public T decode(RegistryFriendlyByteBuf input) {
@@ -112,6 +132,9 @@ public class CodecFactoryImpl implements CodecFactory {
         }
         if (type == double.class || type == Double.class) {
             return ops.getNumberValue(input).map(Number::doubleValue);
+        }
+        if (type == String.class) {
+            return ops.getStringValue(input).map(String::new);
         }
         if (type.isEnum()) {
             return ops.getNumberValue(input).map(Number::intValue).map(i -> type.getEnumConstants()[i]);
@@ -169,6 +192,9 @@ public class CodecFactoryImpl implements CodecFactory {
         if (type == double.class || type == Double.class) {
             return DataResult.success(ops.createDouble((Double) obj));
         }
+        if (type == String.class) {
+            return DataResult.success(ops.createString((String) obj));
+        }
         if (type.isEnum()) {
             return DataResult.success(ops.createInt(((Enum<?>) obj).ordinal()));
         }
@@ -221,6 +247,9 @@ public class CodecFactoryImpl implements CodecFactory {
         if (type == double.class || type == Double.class) {
             return input.readDouble();
         }
+        if (type == String.class) {
+            return input.readUtf();
+        }
         if (type.isEnum()) {
             return type.getEnumConstants()[input.readInt()];
         }
@@ -264,20 +293,22 @@ public class CodecFactoryImpl implements CodecFactory {
             output.writeFloat((Float) value);
         } else if (type == double.class || type == Double.class) {
             output.writeDouble((Double) value);
+        } else if (type == String.class) {
+            output.writeUtf((String) value);
         } else if (type.isEnum()) {
             output.writeInt(((Enum<?>) value).ordinal());
         } else if (ItemStack.class.isAssignableFrom(type)) {
             ItemStack.OPTIONAL_STREAM_CODEC.encode(output, (ItemStack) value);
-        } else if (type.isArray()) {
-            output.writeInt(Array.getLength(value));
-            for (int i = 0; i < Array.getLength(value); i++) {
-                writeValueStream(type.getComponentType(), output, Array.get(value, i));
-            }
         } else if (type.isRecord()) {
             Field[] fields = type.getDeclaredFields();
             for (Field field : fields) {
                 field.setAccessible(true);
                 writeValueStream(field.getType(), output, field.get(value));
+            }
+        } else if (type.isArray()) {
+            output.writeInt(Array.getLength(value));
+            for (int i = 0; i < Array.getLength(value); i++) {
+                writeValueStream(type.getComponentType(), output, Array.get(value, i));
             }
         } else {
             throw new IllegalArgumentException("Unsupported type: " + type);

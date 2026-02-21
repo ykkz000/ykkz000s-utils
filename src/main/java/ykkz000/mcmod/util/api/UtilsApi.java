@@ -1,8 +1,11 @@
 package ykkz000.mcmod.util.api;
 
-import ykkz000.mcmod.util.internal.CodecFactoryImpl;
-import ykkz000.mcmod.util.internal.ItemHelperImpl;
-import ykkz000.mcmod.util.internal.PayloadHelperImpl;
+import ykkz000.mcmod.util.api.codec.CodecFactory;
+import ykkz000.mcmod.util.api.registry.ItemHelper;
+import ykkz000.mcmod.util.api.registry.PayloadHelper;
+import ykkz000.mcmod.util.internal.data.CodecFactoryImpl;
+import ykkz000.mcmod.util.internal.registry.ItemHelperImpl;
+import ykkz000.mcmod.util.internal.registry.PayloadHelperImpl;
 
 import java.util.HashMap;
 import java.util.Map;

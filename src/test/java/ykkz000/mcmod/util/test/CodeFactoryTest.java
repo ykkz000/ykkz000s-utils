@@ -18,30 +18,30 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import ykkz000.mcmod.util.api.UtilsApi;
+import ykkz000.mcmod.util.api.codec.Data;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 public class CodeFactoryTest {
-    record InnerRecord(int a) {}
-    record TestRecord(int a, byte b, boolean c, short d, long e, float f, double g, Integer h, Byte i, Boolean j,
-                      Short k, Long l, Float m, Double n, int[] o, byte[] p, InnerRecord[] q) {
-    }
-
     private static Codec<TestRecord> codec = null;
     private static StreamCodec<RegistryFriendlyByteBuf, TestRecord> streamCodec = null;
+    private static Codec<TestData> dataCodec = null;
+    private static StreamCodec<RegistryFriendlyByteBuf, TestData> dataStreamCodec = null;
 
     @BeforeAll
     protected static void setup() {
-        codec = UtilsApi.codecFactory().codec(TestRecord.class);
-        streamCodec = UtilsApi.codecFactory().streamCodec(TestRecord.class);
+        codec = UtilsApi.codecFactory().recordCodec(TestRecord.class);
+        streamCodec = UtilsApi.codecFactory().recordStreamCodec(TestRecord.class);
+        dataCodec = UtilsApi.codecFactory().codec(TestData.class);
+        dataStreamCodec = UtilsApi.codecFactory().streamCodec(TestData.class);
     }
 
     @Test
     protected void testCodecEncode() {
         JsonObject jsonObject = new JsonObject();
-        DataResult<JsonElement> result = codec.encode(new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6}, new InnerRecord[]{new InnerRecord(1), new InnerRecord(2), new InnerRecord(3)}), JsonOps.INSTANCE, jsonObject);
+        DataResult<JsonElement> result = codec.encode(new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6}, new InnerRecord[]{new InnerRecord(1), new InnerRecord(2), new InnerRecord(3)}, "a", "b"), JsonOps.INSTANCE, jsonObject);
         Assertions.assertTrue(result.isSuccess());
         AtomicReference<JsonObject> newJsonObject = new AtomicReference<>();
         Assertions.assertDoesNotThrow(() -> newJsonObject.set(result.getOrThrow().getAsJsonObject()));
@@ -71,6 +71,8 @@ public class CodeFactoryTest {
         Assertions.assertEquals(1, newJsonObject.get().getAsJsonArray("q").get(0).getAsJsonObject().get("a").getAsInt());
         Assertions.assertEquals(2, newJsonObject.get().getAsJsonArray("q").get(1).getAsJsonObject().get("a").getAsInt());
         Assertions.assertEquals(3, newJsonObject.get().getAsJsonArray("q").get(2).getAsJsonObject().get("a").getAsInt());
+        Assertions.assertEquals("a", newJsonObject.get().get("r").getAsString());
+        Assertions.assertEquals("b", newJsonObject.get().get("s").getAsString());
     }
 
     @Test
@@ -111,39 +113,43 @@ public class CodeFactoryTest {
         q3.addProperty("a", 3);
         q.add(q3);
         jsonObject.add("q", q);
+        jsonObject.addProperty("r", "a");
+        jsonObject.addProperty("s", "b");
         DataResult<Pair<TestRecord, JsonElement>> recordResult = codec.decode(JsonOps.INSTANCE, jsonObject);
         Assertions.assertTrue(recordResult.isSuccess());
-        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::a, _->0).intValue());
-        Assertions.assertEquals((byte) 2, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::b, _->0).byteValue());
-        Assertions.assertTrue(recordResult.map(Pair::getFirst).mapOrElse(TestRecord::c, _->false));
-        Assertions.assertEquals((short) 3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::d, _->0).shortValue());
-        Assertions.assertEquals(4L, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::e, _->0L).longValue());
-        Assertions.assertEquals(5F, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::f, _->0F).floatValue());
-        Assertions.assertEquals(6.0, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::g, _->0.0).doubleValue());
-        Assertions.assertEquals(7, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::h, _->0).intValue());
-        Assertions.assertEquals((byte) 8, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::i, _->0).byteValue());
-        Assertions.assertTrue(recordResult.map(Pair::getFirst).mapOrElse(TestRecord::j, _->false));
-        Assertions.assertEquals((short) 9, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::k, _->0).shortValue());
-        Assertions.assertEquals(10L, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::l, _->0L).longValue());
-        Assertions.assertEquals(11F, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::m, _->0F).floatValue());
-        Assertions.assertEquals(12.0, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::n, _->0.0).doubleValue());
-        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _->new int[0]).length);
-        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _->new int[0])[0]);
-        Assertions.assertEquals(2, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _->new int[0])[1]);
-        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _->new int[0])[2]);
-        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _->new byte[0]).length);
-        Assertions.assertEquals(4, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _->new byte[0])[0]);
-        Assertions.assertEquals(5, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _->new byte[0])[1]);
-        Assertions.assertEquals(6, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _->new byte[0])[2]);
-        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q,  _->new InnerRecord[0]).length);
-        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _->new InnerRecord[0])[0].a());
-        Assertions.assertEquals(2, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _->new InnerRecord[0])[1].a());
-        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _->new InnerRecord[0])[2].a());
+        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::a, _ -> 0).intValue());
+        Assertions.assertEquals((byte) 2, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::b, _ -> 0).byteValue());
+        Assertions.assertTrue(recordResult.map(Pair::getFirst).mapOrElse(TestRecord::c, _ -> false));
+        Assertions.assertEquals((short) 3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::d, _ -> 0).shortValue());
+        Assertions.assertEquals(4L, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::e, _ -> 0L).longValue());
+        Assertions.assertEquals(5F, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::f, _ -> 0F).floatValue());
+        Assertions.assertEquals(6.0, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::g, _ -> 0.0).doubleValue());
+        Assertions.assertEquals(7, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::h, _ -> 0).intValue());
+        Assertions.assertEquals((byte) 8, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::i, _ -> 0).byteValue());
+        Assertions.assertTrue(recordResult.map(Pair::getFirst).mapOrElse(TestRecord::j, _ -> false));
+        Assertions.assertEquals((short) 9, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::k, _ -> 0).shortValue());
+        Assertions.assertEquals(10L, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::l, _ -> 0L).longValue());
+        Assertions.assertEquals(11F, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::m, _ -> 0F).floatValue());
+        Assertions.assertEquals(12.0, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::n, _ -> 0.0).doubleValue());
+        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _ -> new int[0]).length);
+        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _ -> new int[0])[0]);
+        Assertions.assertEquals(2, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _ -> new int[0])[1]);
+        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::o, _ -> new int[0])[2]);
+        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _ -> new byte[0]).length);
+        Assertions.assertEquals(4, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _ -> new byte[0])[0]);
+        Assertions.assertEquals(5, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _ -> new byte[0])[1]);
+        Assertions.assertEquals(6, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::p, _ -> new byte[0])[2]);
+        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _ -> new InnerRecord[0]).length);
+        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _ -> new InnerRecord[0])[0].a());
+        Assertions.assertEquals(2, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _ -> new InnerRecord[0])[1].a());
+        Assertions.assertEquals(3, recordResult.map(Pair::getFirst).mapOrElse(TestRecord::q, _ -> new InnerRecord[0])[2].a());
+        Assertions.assertEquals("a", recordResult.map(Pair::getFirst).mapOrElse(TestRecord::r, _ -> ""));
+        Assertions.assertEquals("b", recordResult.map(Pair::getFirst).mapOrElse(TestRecord::s, _ -> ""));
     }
 
     @Test
     protected void testStreamCodec() {
-        TestRecord source = new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6}, new InnerRecord[]{new InnerRecord(1), new InnerRecord(2), new InnerRecord(3)});
+        TestRecord source = new TestRecord(1, (byte) 2, true, (short) 3, 4L, 5F, 6.0, 7, (byte) 8, true, (short) 9, 10L, 11F, 12.0, new int[]{1, 2, 3}, new byte[]{4, 5, 6}, new InnerRecord[]{new InnerRecord(1), new InnerRecord(2), new InnerRecord(3)}, "a", "b");
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(PooledByteBufAllocator.DEFAULT.buffer(), new RegistryAccess.Frozen() {
             @Override
             public <E> @NonNull Optional<Registry<E>> lookup(@NonNull ResourceKey<? extends Registry<? extends E>> registryKey) {
@@ -183,5 +189,95 @@ public class CodeFactoryTest {
         Assertions.assertEquals(1, result.q()[0].a());
         Assertions.assertEquals(2, result.q()[1].a());
         Assertions.assertEquals(3, result.q()[2].a());
+        Assertions.assertEquals("a", result.r());
+        Assertions.assertEquals("b", result.s());
+    }
+
+    @Test
+    protected void testDataCodecEncode() {
+        TestData source = new TestData(1, 2);
+        JsonObject jsonObject = new JsonObject();
+        DataResult<JsonElement> result = dataCodec.encode(source, JsonOps.INSTANCE, jsonObject);
+        Assertions.assertTrue(result.isSuccess());
+        AtomicReference<JsonObject> newJsonObject = new AtomicReference<>();
+        Assertions.assertDoesNotThrow(() -> newJsonObject.set(result.getOrThrow().getAsJsonObject()));
+        Assertions.assertEquals(1, newJsonObject.get().get("a").getAsInt());
+        Assertions.assertEquals(2, newJsonObject.get().get("b").getAsInt());
+    }
+
+    @Test
+    protected void testDataCodecDecode() {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("a", 1);
+        jsonObject.addProperty("b", 2);
+        DataResult<Pair<TestData, JsonElement>> recordResult = dataCodec.decode(JsonOps.INSTANCE, jsonObject);
+        Assertions.assertTrue(recordResult.isSuccess());
+        Assertions.assertEquals(1, recordResult.map(Pair::getFirst).mapOrElse(TestData::a, _ -> 0).intValue());
+        Assertions.assertEquals(2, recordResult.map(Pair::getFirst).mapOrElse(TestData::b, _ -> 0).intValue());
+    }
+
+    @Test
+    protected void testDataStreamCodec() {
+        TestData source = new TestData(1, 2);
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(PooledByteBufAllocator.DEFAULT.buffer(), new RegistryAccess.Frozen() {
+            @Override
+            public <E> @NonNull Optional<Registry<E>> lookup(@NonNull ResourceKey<? extends Registry<? extends E>> registryKey) {
+                return Optional.empty();
+            }
+
+            @Override
+            public @NonNull Stream<RegistryEntry<?>> registries() {
+                return Stream.empty();
+            }
+        });
+        dataStreamCodec.encode(buf, source);
+        TestData result = dataStreamCodec.decode(buf);
+        Assertions.assertEquals(1, result.a());
+        Assertions.assertEquals(2, result.b());
+    }
+
+    record InnerRecord(int a) {
+    }
+
+    record TestRecord(int a, byte b, boolean c, short d, long e, float f, double g, Integer h, Byte i, Boolean j,
+                      Short k, Long l, Float m, Double n, int[] o, byte[] p, InnerRecord[] q, String r, String s) {
+    }
+
+    public static class TestData implements Data<TestData, TestData.TestRecord1> {
+        private int a;
+        private int b;
+
+        protected TestData(int a, int b) {
+            this.a = a;
+            this.b = b;
+        }
+
+        protected int a() {
+            return a;
+        }
+
+        protected int b() {
+            return b;
+        }
+
+        protected void a(int a) {
+            this.a = a;
+        }
+
+        protected void b(int b) {
+            this.b = b;
+        }
+
+        @Override
+        public TestData.TestRecord1 toImmutable() {
+            return new TestRecord1(a, b);
+        }
+
+        public record TestRecord1(int a, int b) implements Data.Immutable<TestData.TestRecord1, TestData> {
+            @Override
+            public TestData toMutable() {
+                return new TestData(a, b);
+            }
+        }
     }
 }

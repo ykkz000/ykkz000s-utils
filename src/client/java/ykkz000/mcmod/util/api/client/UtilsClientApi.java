@@ -1,5 +1,6 @@
 package ykkz000.mcmod.util.api.client;
 
+import ykkz000.mcmod.util.api.client.input.KeyboardHelper;
 import ykkz000.mcmod.util.internal.client.KeyboardHelperImpl;
 
 import java.util.HashMap;

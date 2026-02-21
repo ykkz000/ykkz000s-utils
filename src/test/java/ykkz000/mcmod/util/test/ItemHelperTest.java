@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import ykkz000.mcmod.util.api.ItemHelper;
+import ykkz000.mcmod.util.api.registry.ItemHelper;
 import ykkz000.mcmod.util.api.UtilsApi;
 
 import java.util.Optional;

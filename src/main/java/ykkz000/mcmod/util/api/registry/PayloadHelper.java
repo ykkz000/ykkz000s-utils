@@ -1,4 +1,4 @@
-package ykkz000.mcmod.util.api;
+package ykkz000.mcmod.util.api.registry;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;

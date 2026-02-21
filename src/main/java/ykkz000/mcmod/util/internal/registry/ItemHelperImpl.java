@@ -1,4 +1,4 @@
-package ykkz000.mcmod.util.internal;
+package ykkz000.mcmod.util.internal.registry;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -6,7 +6,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
-import ykkz000.mcmod.util.api.ItemHelper;
+import ykkz000.mcmod.util.api.registry.ItemHelper;
 
 import java.util.function.Function;
 

@@ -1,11 +1,11 @@
-package ykkz000.mcmod.util.internal;
+package ykkz000.mcmod.util.internal.registry;
 
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
-import ykkz000.mcmod.util.api.PayloadHelper;
+import ykkz000.mcmod.util.api.registry.PayloadHelper;
 
 public class PayloadHelperImpl implements PayloadHelper {
     public static PayloadHelperImpl create(final String modId) {

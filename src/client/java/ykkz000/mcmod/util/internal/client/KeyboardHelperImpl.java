@@ -5,7 +5,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import ykkz000.mcmod.util.api.client.KeyboardHelper;
+import ykkz000.mcmod.util.api.client.input.KeyboardHelper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
